@@ -11,7 +11,6 @@
       "models": {
         "antigravity-gemini-3-pro-high": {
           "name": "Gemini 3 Pro High (Antigravity)",
-          "thinking": true,
           "attachment": true,
           "limit": {
             "context": 1048576,
@@ -30,7 +29,6 @@
         },
         "antigravity-claude-opus-4-5-thinking": {
           "name": "Claude Opus 4.5 (Antigravity)",
-          "thinking": true,
           "attachment": true,
           "limit": {
             "context": 200000,
@@ -60,7 +58,6 @@
         },
         "antigravity-claude-sonnet-4-5-thinking": {
           "name": "Claude Sonnet 4.5 (Antigravity)",
-          "thinking": true,
           "attachment": true,
           "limit": {
             "context": 200000,
@@ -93,7 +90,6 @@
         },
         "antigravity-gemini-3-pro-low": {
           "name": "Gemini 3 Pro Low (Antigravity)",
-          "thinking": true,
           "attachment": true,
           "limit": {
             "context": 1048576,
