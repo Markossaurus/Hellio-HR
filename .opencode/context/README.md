@@ -2,7 +2,8 @@
 
 This folder contains authoritative context for LLM agents.
 Agents should rely on this instead of guessing system behavior.
-
+Use context/stage-current.md as the authoritative source for current goals and constraints.
+Ignore archived stage files unless explicitly asked.
 
 # Context Index (read this first)
 
@@ -35,3 +36,6 @@ Agents should rely on this instead of guessing system behavior.
 - frontend-ui-ux-engineer: 00, 01, 08
 - document-writer: 00, 02, 08
 - multimodal-looker: 03, 08
+- backend-data-agent: 00, 01, 02, 08
+
+

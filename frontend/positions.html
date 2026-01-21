@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Positions | Hellio HR</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1>Hellio HR</h1>
+      <nav>
+        <a href="index.html">Candidates</a>
+        <a href="positions.html" class="active">Positions</a>
+      </nav>
+    </div>
+  </header>
+  
+  <main class="container">
+    <div class="toolbar mb-2">
+      <div class="search-wrapper">
+        <input type="search" id="search-input" class="search-box" placeholder="Search positions...">
+      </div>
+    </div>
+    
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Open Positions</span>
+        </div>
+        <div id="position-list"></div>
+      </div>
+      <div id="position-detail"></div>
+    </div>
+  </main>
+
+  <script type="module" src="js/positions-app.js"></script>
+</body>
+</html>
