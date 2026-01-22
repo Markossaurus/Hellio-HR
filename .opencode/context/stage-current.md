@@ -1,145 +1,276 @@
-# Stage: Candidate Profile Viewer & Diff (UI Foundation)
+# Stage: Backend & Persistence (Stage 2)
 
 ## Context
 
-This is the **first hands-on exercise** of the Hellio HR system and the **first concrete capability** of the platform.
+In Exercise 1, the Hellio HR system established a **clear user-facing contract**:
 
-HR professionals and interviewers routinely review candidate CVs in inconsistent formats (PDF, Word, email attachments).  
-Comparing versions, understanding what changed, and forming a clear picture of a candidate is time-consuming and error-prone.
+* A normalized candidate profile JSON schema
+* A frontend UI that depends on this schema to render candidates, positions, and comparisons
 
-This stage establishes the **primary user interface** for Hellio HR and sets foundational expectations that all later stages will build on.
+All data in Stage 1 was hardcoded and ephemeral.
 
-### Core Principles
-- **Clarity over cleverness**
-- **Traceability over automation**
-- **Humans in control**
+This stage introduces a **real backend service and relational persistence layer**, while **preserving the UI contract** established earlier.
 
-No intelligent automation is introduced at this stage.
+The primary challenge is **adding durability and structure without changing frontend behavior**.
+
+---
+
+## Core Principles
+
+* **Preserve the UI contract** from Stage 1
+* **Model the HR domain, not infrastructure**
+* **Explicit structure over implicit behavior**
+* **No automation magic** – everything is deterministic and explainable
+* **Design for future ingestion and intelligence without implementing it yet**
 
 ---
 
 ## Goal
 
-Design and implement a **clean, demo-able web UI** for reviewing and comparing candidate profiles that:
+Design and implement a **FastAPI-based backend** backed by **PostgreSQL**, such that:
 
-- Presents candidate data in a **uniform, normalized structure**
-- Preserves access to **original CV documents**
-- Is architected to be **extended later** by intelligent backends and agents
+* Candidate, position, and CV data are persisted in a relational database
+* The existing frontend loads all data from backend APIs
+* Position details can be updated and persisted
+* The system runs fully locally using containers
 
----
-
-## Learning Objectives
-
-By the end of this stage, participants should be able to:
-
-- Design a clean UI for reviewing technical candidate profiles
-- Separate normalized candidate data from original source documents
-- Build a frontend that anticipates future backend and agent-driven features
-
-This stage also builds familiarity with **agent-assisted development workflows**, including:
-- Defining work rules and constraints
-- Using sub-agents for scoped tasks
-- Preparing the system for future MCP and agent integrations
+This stage results in a **fully demo-able end-to-end system**.
 
 ---
 
 ## In Scope
 
-### UI Capabilities
-- Candidate profile viewer (structured view)
-- Side-by-side comparison of **two candidates**
-- Reference links to original CV documents
+### Backend
 
-### Data Handling
-- Semi-manual normalization of candidate CVs into JSON
-- Semi-manual normalization of job descriptions into JSON
-- Hardcoded JSON data (no persistence layer)
+* FastAPI backend service
+* REST APIs for candidates and positions
+* Role-based access control (read-only vs update)
+* Streaming or serving CV documents via backend
+
+### Database
+
+* PostgreSQL database
+* Explicit relational schema for:
+
+  * users & roles
+  * candidates
+  * positions
+  * candidate-position relationships
+  * normalized candidate profiles (JSON)
+  * CV document references
+
+### Data Loading
+
+* Manual loading of:
+
+  * several candidates
+  * several positions
+  * several CV documents
+* Data may be inserted using SQL scripts or manual tooling
+
+### Infrastructure
+
+* Local container-based setup
+
+  * DB container (PostgreSQL)
+  * Backend container (FastAPI)
+  * Frontend container (already exists)
 
 ---
 
 ## Out of Scope
 
-The following are **explicitly excluded** from this stage:
-
-- Automatic CV parsing or extraction
-- Databases or persistent storage
-- Authentication or authorization
-- Any LLM- or agent-powered functionality
-- Backend APIs
-
-> This stage is about **using agents to build**, not building AI-powered systems themselves.
+* Automatic CV parsing or extraction
+* Semantic analysis or LLM usage
+* Agents, MCP, or intelligent automation
+* Performance optimizations
+* UI changes beyond wiring to backend APIs
+* File ingestion pipelines or loaders
 
 ---
 
-## Inputs
+## Stack
 
-Provided to participants:
-
-- Mock candidate profiles in PDF / Word format  
-  - 2–3 candidates are expected to be semi-manually normalized into JSON
-- Job description documents  
-  - Expected to be semi-manually normalized into JSON
+* **Backend:** FastAPI (Python)
+* **Database:** PostgreSQL
+* **Frontend:** Existing UI from Exercise 1 (unchanged)
+* **Migrations:** Manual SQL migrations using a lightweight runner
 
 ---
 
-## Expected Outputs
+## Database Design
 
-At the end of this stage, the system must be **fully demo-able** and include:
+The database models **domain concepts only**, not storage or ingestion mechanics.
 
-### Candidate Screen
-- List of all **Active** candidates
-- Search and filter by name and/or position
-- Candidate profile displayed in a uniform structure
-- Side-by-side comparison of two candidates
-- Ability to add or remove positions from a candidate
-- Links or previews for original CV documents
+### Entities
 
-### Positions Screen
-- List of all **Open** positions
-- Display of position descriptions
-- List of current candidates associated with each position
+#### Users & Roles
+
+* Users authenticate into the system
+* Roles determine read-only vs update permissions
+
+Tables:
+
+* `users`
+* `roles`
+* `user_roles`
+
+#### Candidates
+
+* Represents a person being evaluated
+* Contains identity and lifecycle status only
+
+Table:
+
+* `candidates`
+
+#### Candidate Profiles
+
+* Stores the **normalized candidate profile JSON** defined in Exercise 1
+* One profile per candidate (no versioning yet)
+
+Table:
+
+* `candidate_profiles`
+
+  * `profile_json` (JSONB)
+  * `schema_version`
+
+> This table preserves the frontend data contract.
+
+#### Positions
+
+* Represents an open or closed role
+* Position details can be updated via the UI
+
+Table:
+
+* `positions`
+
+#### Candidate–Position Relationship
+
+* Explicit many-to-many mapping
+* Represents which candidates are considered for which positions
+
+Table:
+
+* `candidate_positions`
+
+#### CV Documents
+
+* Represents the existence of a CV
+* The database does **not** manage storage
+* Documents are referenced via an opaque identifier
+
+Table:
+
+* `cv_documents`
+
+  * `display_name`
+  * `source` (e.g. `local`)
+  * `reference` (opaque string resolved by backend)
 
 ---
 
-## Functional Requirements
+## Database Migrations
 
-- Candidate profiles must be displayed using a **consistent schema**
-- Original CV documents must remain **accessible and unchanged**
-- Comparison views must clearly show similarities and differences
-- UI interactions must be deterministic and predictable
+Schema changes are managed using **manual SQL migrations**.
+
+### Migration Tooling
+
+Use a free, lightweight migration runner such as:
+
+* **golang-migrate** (recommended)
+
+Migrations are written as plain SQL files:
+
+```
+migrations/
+  001_init_schema.sql
+  002_seed_roles.sql
+  003_seed_sample_data.sql
+```
+
+Migrations are applied explicitly and intentionally.
 
 ---
 
-## Non-Functional Requirements
+## Backend Responsibilities
 
-- UI prioritizes **readability over information density**
-- Codebase should be easy to extend to support:
-  - Additional profile fields
-  - Backend APIs
-  - Future agent-generated content
-  - A future “contextual chat” on candidate and position screens
+The backend service must:
+
+* Authenticate users
+* Enforce role-based permissions
+* Expose REST APIs matching frontend data needs
+* Serve CV documents via HTTP
+* Translate database rows into the existing UI JSON shape
+
+### Required Endpoints (Minimum)
+
+* `POST /auth/login`
+* `GET /candidates`
+* `GET /candidates/{id}`
+* `GET /positions`
+* `GET /positions/{id}`
+* `PATCH /positions/{id}` (editor/admin only)
+* `GET /cv-documents/{id}/download`
 
 ---
 
-## Architectural Constraints & Hints
+## Frontend Integration
 
-- Treat the **candidate profile as a pure data model**, independent of UI
-- Normalize:
-  - experience
-  - skills
-  - education  
-  as lists with **stable identifiers**
-- Maintain clear sorting rules to enable easy comparison
-- Favor explicit structure over inferred meaning
+* The frontend must load all data from backend APIs
+* No frontend logic changes beyond replacing mock data with API calls
+* UI behavior and layout must remain unchanged
+
+---
+
+## Local Development Setup
+
+The system must run locally using containers:
+
+* PostgreSQL container
+* FastAPI backend container
+* Frontend container
+
+All services communicate via a local Docker network.
+
+---
+
+## Development Approach
+
+Participants should:
+
+1. Design and finalize the database schema
+2. Write migrations before writing backend logic
+3. Bring up DB and verify schema
+4. Implement backend endpoints incrementally
+5. Connect frontend and validate UI behavior
+6. Commit after each vertical slice
+
+---
+
+## Validation & Self-Check
+
+You should be able to answer **yes** to all of the following:
+
+* Can I explain every table and why it exists?
+* Does the frontend work without modification?
+* Is all candidate data coming from the database?
+* Can I update a position and see it persist?
+* Can I locate where a CV is referenced and how it is served?
+* If a new CV arrives tomorrow, do I know exactly where it fits?
+* Can this system be demoed end-to-end locally?
 
 ---
 
 ## Done When
 
-This stage is considered complete when:
+This stage is complete when:
 
-- The UI can be demoed end-to-end without manual explanation
-- Candidate data is consistently structured
-- Original documents are traceable from the UI
-- Two candidates can be compared side by side
-- The codebase clearly anticipates future backend and agent extensions
+* The backend service is running locally
+* PostgreSQL contains candidate, position, and CV data
+* The frontend loads all data from backend APIs
+* Position updates persist correctly
+* CVs are accessible via the UI
+* The system can be demoed end-to-end without explanation

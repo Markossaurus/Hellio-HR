@@ -1,0 +1,22 @@
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.local
+*.log
+
+# OpenCode
+.opencode/
+
+# Data (mounted as volumes)
+data/
+
+# Docker
+.dockerignore

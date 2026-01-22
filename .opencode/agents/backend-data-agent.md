@@ -13,7 +13,6 @@ tools:
 
 # Hard safety controls
 permission:
-  edit: ask
   bash:
     "*": ask
     "git commit*": deny

@@ -1,0 +1,16 @@
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    database_url: str = Field(
+        default="postgresql://postgres:postgres@localhost:5432/hellio_hr",
+        validation_alias="DATABASE_URL",
+    )
+    secret_key: str = Field(default="change-me", validation_alias="SECRET_KEY")
+    cv_storage_path: str = Field(default="data/cv_documents", validation_alias="CV_STORAGE_PATH")
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+
+settings = Settings()

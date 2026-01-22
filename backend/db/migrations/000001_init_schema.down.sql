@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS cv_documents;
+DROP TABLE IF EXISTS candidate_positions;
+DROP TABLE IF EXISTS candidate_profiles;
+DROP TABLE IF EXISTS candidates;
+DROP TABLE IF EXISTS positions;
+DROP TABLE IF EXISTS user_roles;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS users;
+
+DROP EXTENSION IF EXISTS "citext";
+DROP EXTENSION IF EXISTS "pgcrypto";

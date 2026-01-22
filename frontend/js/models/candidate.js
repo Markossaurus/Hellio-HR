@@ -3,12 +3,9 @@
  * Pure data structure - no UI logic
  */
 
-export const CandidateStatus = {
-  ACTIVE: 'active',
-  ARCHIVED: 'archived',
-  HIRED: 'hired',
-  REJECTED: 'rejected'
-};
+import { CandidateStatus } from '../data/candidates.js';
+
+export { CandidateStatus };
 
 /**
  * Schema for candidate data

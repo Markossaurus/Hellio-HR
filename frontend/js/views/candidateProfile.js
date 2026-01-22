@@ -1,5 +1,6 @@
 import { getCandidateById } from '../data/candidates.js';
 import { getPositionById } from '../data/positions.js';
+import { downloadCv, viewCv } from '../api/documents.js';
 
 export function renderCandidateProfile(container, candidateId, { onAddPosition, onRemovePosition }) {
   const candidate = getCandidateById(candidateId);
@@ -18,7 +19,16 @@ export function renderCandidateProfile(container, candidateId, { onAddPosition, 
           <h2 class="card-title">${candidate.name}</h2>
           <div class="candidate-title">${candidate.title}</div>
         </div>
-        ${candidate.cvDocument ? `
+        ${candidate.cvDocument && candidate.cvDocument.id ? `
+          <div class="cv-actions">
+            <button class="btn btn-secondary cv-view-btn" data-cv-id="${candidate.cvDocument.id}">
+              View CV
+            </button>
+            <button class="btn btn-primary cv-download-btn" data-cv-id="${candidate.cvDocument.id}">
+              Download CV
+            </button>
+          </div>
+        ` : candidate.cvDocument ? `
           <a href="${candidate.cvDocument.path}" target="_blank" class="cv-link">
             📄 View CV
           </a>
@@ -102,6 +112,44 @@ export function renderCandidateProfile(container, candidateId, { onAddPosition, 
   container.querySelectorAll('.btn-remove-position').forEach(btn => {
     btn.addEventListener('click', () => {
       onRemovePosition?.(candidateId, btn.dataset.positionId);
+    });
+  });
+
+  container.querySelectorAll('.cv-view-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const cvId = e.target.dataset.cvId;
+      try {
+        const originalText = e.target.innerText;
+        e.target.innerText = 'Opening...';
+        e.target.disabled = true;
+        
+        await viewCv(cvId);
+      } catch (error) {
+        alert('Failed to open CV');
+        console.error(error);
+      } finally {
+        e.target.innerText = originalText;
+        e.target.disabled = false;
+      }
+    });
+  });
+  
+  container.querySelectorAll('.cv-download-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const cvId = e.target.dataset.cvId;
+      try {
+        const originalText = e.target.innerText;
+        e.target.innerText = 'Downloading...';
+        e.target.disabled = true;
+
+        await downloadCv(cvId);
+      } catch (error) {
+        alert('Failed to download CV');
+        console.error(error);
+      } finally {
+        e.target.innerText = originalText;
+        e.target.disabled = false;
+      }
     });
   });
 }

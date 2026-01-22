@@ -3,12 +3,9 @@
  * Pure data structure - no UI logic
  */
 
-export const PositionStatus = {
-  OPEN: 'open',
-  CLOSED: 'closed',
-  ON_HOLD: 'on_hold',
-  FILLED: 'filled'
-};
+import { PositionStatus } from '../data/positions.js';
+
+export { PositionStatus };
 
 /**
  * Schema for position data
