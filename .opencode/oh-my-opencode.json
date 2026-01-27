@@ -1,39 +1,76 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
   "google_auth": true,
-  "agents": {
-    "Planner-Sisyphus": {       
+  "categories": {
+    "ultrabrain": {
       "model": "google/antigravity-claude-opus-4-5-thinking",
+      "temperature": 0.1
+    },
+    "quick": {
+      "model": "openai/gpt-5.1-codex-mini",
+      "temperature": 0.5
+    },
+    "visual-engineering": {
+      "model": "google/antigravity-gemini-3-pro-low",
+      "temperature": 0.3
+    },
+    "strategic": {
+      "model": "openai/gpt-5.2-codex",
+      "temperature": 0.1
+    },
+    "balanced": {
+      "model": "openai/gpt-5.2-codex",
+      "temperature": 0.3
+    }
+  },
+  "agents": {
+    "sisyphus-junior": {
+      "model": "openai/gpt-5.2-codex",
+      "tools": {
+        "task": false,
+        "sisyphus_task": false,
+        "call_omo_agent": false
+      }
+    },
+    "prometheus": {
+      "model": "google/antigravity-claude-opus-4-5-thinking",
+      "category": "ultrabrain",
       "variant": "high"
     },
-    "Sisyphus": {       
-      "model": "google/antigravity-claude-opus-4-5-thinking",
-      "variant": "high"
+    "atlas": {
+      "model": "google/antigravity-claude-sonnet-4-5-thinking"
+    },
+    "sisyphus": {
+      "model": "google/antigravity-claude-sonnet-4-5-thinking",
+      "category": "ultrabrain",
+      "variant": "medium"
     },
     "oracle": {
       "model": "openai/gpt-5.2",
+      "category": "strategic",
       "variant": "medium"
     },
-
     "librarian": {
-      "model": "google/antigravity-claude-sonnet-4-5-thinking",
+      "model": "openai/gpt-5.2",
+      "category": "balanced",
       "variant": "medium"
     },
-
     "explore": {
-      "model": "opencode/grok-code"
+      "category": "quick",
+      "model": "openai/gpt-5.1-codex-mini"
     },
-
     "frontend-ui-ux-engineer": {
-      "model": "google/antigravity-gemini-3-pro-low"
+      "model": "google/antigravity-gemini-3-pro-low",
+      "category": "visual-engineering"
     },
-
     "document-writer": {
       "model": "google/antigravity-gemini-3-flash"
     },
-
     "multimodal-looker": {
       "model": "google/antigravity-gemini-3-flash"
+    },
+    "backend-data-agent": {
+      "model": "openai/gpt-5.2-codex"
     }
   }
 }

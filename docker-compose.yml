@@ -40,6 +40,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./frontend/assets/cvs:/app/data/cvs:ro
+      - ./backend/test:/app/test
     depends_on:
       db:
         condition: service_healthy
