@@ -91,14 +91,9 @@ def _ensure_positions_table(test_db: Session) -> None:
 
 
 def _normalize_user_ids(test_db: Session) -> None:
-    """Normalize placeholder IDs into UUID-shaped strings.
-
-    Mirrors the pattern used in auth tests, extended to auth_tokens.
-    """
-
-    new_user_id = uuid.uuid4().hex
-    new_role_id = uuid.uuid4().hex
-    new_token_id = uuid.uuid4().hex
+    new_user_id = str(uuid.uuid4())
+    new_role_id = str(uuid.uuid4())
+    new_token_id = str(uuid.uuid4())
 
     _ = test_db.execute(
         text("UPDATE users SET id = :new_id WHERE id = :old_id"),
@@ -198,7 +193,7 @@ def _prepare_auth(test_db: Session, token: str) -> None:
 
 def _create_position(test_db: Session, *, status: str = "open", title: str = "Engineer") -> str:
     position_uuid = uuid.uuid4()
-    position_id = position_uuid.hex
+    position_id = str(position_uuid)
     _ = test_db.execute(
         text(
             """

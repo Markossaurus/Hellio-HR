@@ -193,6 +193,7 @@ class IngestRequest(BaseSchema):
 
 class IngestResponse(BaseSchema):
     document_id: str
-    extraction_id: str
+    extraction_id: str | None = None
     status: str
-    summary: str | None = None
+    summary: str
+    candidate_id: str | None = None

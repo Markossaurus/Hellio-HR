@@ -71,11 +71,3 @@ CREATE TABLE candidate_positions (
   UNIQUE (candidate_id, position_id)
 );
 
-CREATE TABLE cv_documents (
-  id UUID PRIMARY KEY,
-  candidate_id UUID REFERENCES candidates(id),
-  display_name VARCHAR(255) NOT NULL,
-  source VARCHAR(50) DEFAULT 'local',
-  reference VARCHAR(500) NOT NULL,
-  uploaded_at TIMESTAMPTZ
-);

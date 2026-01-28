@@ -4,10 +4,42 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, UUID
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Text, TypeDecorator
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+
+
+class UUID(TypeDecorator):
+    """Platform-independent UUID type.
+    
+    Uses PostgreSQL's UUID type for PostgreSQL, String(36) for SQLite and others.
+    """
+    impl = String
+    cache_ok = True
+    
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(String(36))
+    
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value
+        else:
+            return str(value)
+    
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        elif dialect.name == 'postgresql':
+            return value
+        else:
+            return uuid.UUID(value)
+
 
 class Base(DeclarativeBase):
     pass
@@ -16,7 +48,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(CITEXT, unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -29,7 +61,7 @@ class User(Base):
 class Role(Base):
     __tablename__ = "roles"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
 
     users: Mapped[list[User]] = relationship("User", secondary="user_roles", back_populates="roles")
@@ -39,17 +71,17 @@ class UserRole(Base):
     __tablename__ = "user_roles"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+        UUID(), ForeignKey("users.id"), primary_key=True
     )
     role_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("roles.id"), primary_key=True
+        UUID(), ForeignKey("roles.id"), primary_key=True
     )
 
 
 class Candidate(Base):
     __tablename__ = "candidates"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255))
@@ -65,15 +97,15 @@ class Candidate(Base):
     positions: Mapped[list[CandidatePosition]] = relationship(
         "CandidatePosition", back_populates="candidate"
     )
-    cv_documents: Mapped[list[CvDocument]] = relationship("CvDocument", back_populates="candidate")
-    documents: Mapped[list[Document]] = relationship("Document", back_populates="candidate")
+    documents: Mapped[list["Document"]] = relationship("Document", back_populates="candidate")
+
 
 
 class CandidateProfile(Base):
     __tablename__ = "candidate_profiles"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    candidate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("candidates.id"), unique=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    candidate_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("candidates.id"), unique=True)
     profile_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     schema_version: Mapped[str] = mapped_column(String(20), server_default="1.0")
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -85,7 +117,7 @@ class CandidateProfile(Base):
 class Position(Base):
     __tablename__ = "positions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     department: Mapped[str | None] = mapped_column(String(100))
@@ -110,9 +142,9 @@ class Position(Base):
 class CandidatePosition(Base):
     __tablename__ = "candidate_positions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    candidate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("candidates.id"))
-    position_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("positions.id"))
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    candidate_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("candidates.id"))
+    position_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("positions.id"))
     stage: Mapped[str | None] = mapped_column(String(50), server_default="applied")
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -121,24 +153,11 @@ class CandidatePosition(Base):
     candidate: Mapped[Candidate] = relationship("Candidate", back_populates="positions")
     position: Mapped[Position] = relationship("Position", back_populates="candidates")
 
-
-class CvDocument(Base):
-    __tablename__ = "cv_documents"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    candidate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("candidates.id"))
-    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    source: Mapped[str | None] = mapped_column(String(50))
-    reference: Mapped[str] = mapped_column(String(500), nullable=False)
-    uploaded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    candidate: Mapped[Candidate | None] = relationship("Candidate", back_populates="cv_documents")
-
 class AuthToken(Base):
     __tablename__ = "auth_tokens"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("users.id"))
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -150,12 +169,12 @@ class AuthToken(Base):
 class Document(Base):
     __tablename__ = "documents"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
     type: Mapped[str] = mapped_column(String(20), nullable=False)
-    content_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    candidate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("candidates.id"))
+    candidate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(), ForeignKey("candidates.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     candidate: Mapped[Candidate | None] = relationship("Candidate", back_populates="documents")
@@ -167,8 +186,8 @@ class Document(Base):
 class DocumentText(Base):
     __tablename__ = "document_texts"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
     parser_version: Mapped[str] = mapped_column(String(50), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -179,8 +198,8 @@ class DocumentText(Base):
 class DocumentExtraction(Base):
     __tablename__ = "document_extractions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     heuristic_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     llm_raw_output: Mapped[str] = mapped_column(Text, nullable=False)
     extracted_json_validated: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -202,8 +221,8 @@ class DocumentExtraction(Base):
 class DocumentSummary(Base):
     __tablename__ = "document_summaries"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     summary_text: Mapped[str] = mapped_column(Text, nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
     provider: Mapped[str] = mapped_column(String(50), nullable=False)

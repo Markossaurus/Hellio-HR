@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     )
     secret_key: str = Field(default="change-me", validation_alias="SECRET_KEY")
     cv_storage_path: str = Field(default="data/cv_documents", validation_alias="CV_STORAGE_PATH")
+    
+    # LLM settings
+    llm_provider: str = Field(default="ollama", validation_alias="LLM_PROVIDER")
+    llm_model: str = Field(default="llama3.2", validation_alias="LLM_MODEL")
+    ollama_base_url: str = Field(default="http://localhost:11434", validation_alias="OLLAMA_BASE_URL")
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

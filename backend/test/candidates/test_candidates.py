@@ -126,14 +126,9 @@ def _ensure_candidate_tables(test_db: Session) -> None:
 
 
 def _normalize_user_ids(test_db: Session) -> None:
-    """Normalize placeholder IDs into UUID-shaped strings.
-
-    Mirrors the pattern used in auth tests, extended to auth_tokens.
-    """
-
-    new_user_id = uuid.uuid4().hex
-    new_role_id = uuid.uuid4().hex
-    new_token_id = uuid.uuid4().hex
+    new_user_id = str(uuid.uuid4())
+    new_role_id = str(uuid.uuid4())
+    new_token_id = str(uuid.uuid4())
 
     _ = test_db.execute(
         text("UPDATE users SET id = :new_id WHERE id = :old_id"),
@@ -233,8 +228,8 @@ def _prepare_auth(test_db: Session, token: str) -> None:
 
 def _create_candidate(test_db: Session, *, status: str = "active", name: str = "Ada Lovelace") -> str:
     candidate_uuid = uuid.uuid4()
-    candidate_id = candidate_uuid.hex
-    profile_id = uuid.uuid4().hex
+    candidate_id = str(candidate_uuid)
+    profile_id = str(uuid.uuid4())
     profile = {
         "id": str(candidate_uuid),
         "status": status,

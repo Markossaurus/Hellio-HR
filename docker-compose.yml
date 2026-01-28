@@ -28,6 +28,8 @@ services:
     # Run once: docker compose run --rm migrate
 
   backend:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -35,11 +37,12 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/hellio_hr
       SECRET_KEY: dev-secret-key-change-in-prod
       CV_STORAGE_PATH: /app/data/cvs
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
     ports:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
-      - ./frontend/assets/cvs:/app/data/cvs:ro
+      - ./frontend/assets/cvs:/app/data/cvs:rw
       - ./backend/test:/app/test
     depends_on:
       db:
