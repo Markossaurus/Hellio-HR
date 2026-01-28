@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, UUID
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -65,16 +66,15 @@ class Candidate(Base):
         "CandidatePosition", back_populates="candidate"
     )
     cv_documents: Mapped[list[CvDocument]] = relationship("CvDocument", back_populates="candidate")
+    documents: Mapped[list[Document]] = relationship("Document", back_populates="candidate")
 
 
 class CandidateProfile(Base):
     __tablename__ = "candidate_profiles"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    candidate_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("candidates.id"), unique=True
-    )
-    profile_json: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    candidate_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("candidates.id"), unique=True)
+    profile_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     schema_version: Mapped[str] = mapped_column(String(20), server_default="1.0")
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -134,7 +134,6 @@ class CvDocument(Base):
 
     candidate: Mapped[Candidate | None] = relationship("Candidate", back_populates="cv_documents")
 
-
 class AuthToken(Base):
     __tablename__ = "auth_tokens"
 
@@ -146,3 +145,71 @@ class AuthToken(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped[User] = relationship("User", back_populates="tokens")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    type: Mapped[str] = mapped_column(String(20), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    candidate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("candidates.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    candidate: Mapped[Candidate | None] = relationship("Candidate", back_populates="documents")
+    texts: Mapped[list[DocumentText]] = relationship("DocumentText", back_populates="document", cascade="all, delete-orphan")
+    extractions: Mapped[list[DocumentExtraction]] = relationship("DocumentExtraction", back_populates="document", cascade="all, delete-orphan")
+    summaries: Mapped[list[DocumentSummary]] = relationship("DocumentSummary", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentText(Base):
+    __tablename__ = "document_texts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
+    parser_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    document: Mapped[Document] = relationship("Document", back_populates="texts")
+
+
+class DocumentExtraction(Base):
+    __tablename__ = "document_extractions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    heuristic_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    llm_raw_output: Mapped[str] = mapped_column(Text, nullable=False)
+    extracted_json_validated: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    extraction_schema_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), nullable=False)
+    error_details: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    token_estimate_in: Mapped[int | None] = mapped_column(Integer)
+    token_estimate_out: Mapped[int | None] = mapped_column(Integer)
+    cost_estimate_usd: Mapped[float | None] = mapped_column(Numeric(10, 6))
+    elapsed_ms: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    document: Mapped[Document] = relationship("Document", back_populates="extractions")
+
+
+class DocumentSummary(Base):
+    __tablename__ = "document_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    token_estimate_in: Mapped[int | None] = mapped_column(Integer)
+    token_estimate_out: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    document: Mapped[Document] = relationship("Document", back_populates="summaries")
