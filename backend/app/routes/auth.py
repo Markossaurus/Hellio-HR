@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app import schemas
 from app.auth import create_token, verify_password
@@ -14,8 +14,8 @@ router = APIRouter()
 def login(
     payload: schemas.LoginRequest, db: Session = Depends(get_db)
 ) -> schemas.LoginResponse:
-    stmt = select(User).where(User.email == payload.email)
-    user = db.execute(stmt).scalar_one_or_none()
+    stmt = select(User).where(User.email == payload.email).options(joinedload(User.roles))
+    user = db.execute(stmt).unique().scalar_one_or_none()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_token(user.id, db)

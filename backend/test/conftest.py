@@ -1,37 +1,53 @@
+"""Test fixtures for backend suite."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import pytest
 from collections.abc import Generator
+import sqlite3
+import uuid
+
+sqlite3.register_adapter(uuid.UUID, lambda value: str(value))
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, MetaData, Table, Column, String
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import StaticPool
+from sqlalchemy.engine import Engine
+from sqlalchemy import text
 
 from app.main import app
 from app.db import get_db
 
 
-@pytest.fixture
-def test_db() -> Generator[Session, None, None]:
-    """Create in-memory SQLite database for testing."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    
-    # Create minimal tables needed for auth
-    from sqlalchemy import MetaData, Table, Column, String, DateTime, Integer
+@pytest.fixture(scope="session")
+def sqlite_engine() -> Generator[Engine, None, None]:
+    """Create shared in-memory SQLite engine for testing."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
     metadata = MetaData()
-    
-    users = Table('users', metadata,
+    Table(
+        'users', metadata,
         Column('id', String(36), primary_key=True),
         Column('email', String(255), unique=True, nullable=False),
         Column('password_hash', String(255), nullable=False),
         Column('created_at', String(50)),
         Column('updated_at', String(50))
     )
-    
-    roles = Table('roles', metadata,
+    Table(
+        'roles', metadata,
         Column('id', String(36), primary_key=True),
         Column('name', String(50), unique=True, nullable=False)
     )
-    
-    auth_tokens = Table('auth_tokens', metadata,
+    Table(
+        'auth_tokens', metadata,
         Column('id', String(36), primary_key=True),
         Column('user_id', String(36), nullable=False),
         Column('token_hash', String(64), nullable=False),
@@ -39,15 +55,35 @@ def test_db() -> Generator[Session, None, None]:
         Column('revoked_at', String(50)),
         Column('created_at', String(50))
     )
-    
-    user_roles = Table('user_roles', metadata,
+    Table(
+        'user_roles', metadata,
         Column('user_id', String(36), primary_key=True),
         Column('role_id', String(36), primary_key=True)
     )
-    
+
     metadata.create_all(engine)
-    TestSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-    db = TestSessionLocal()
+    yield engine
+
+
+@pytest.fixture(scope="session")
+def session_factory(sqlite_engine: Engine):
+    return sessionmaker(
+        bind=sqlite_engine,
+        autoflush=False,
+        autocommit=False,
+        expire_on_commit=False,
+    )
+
+
+@pytest.fixture
+def test_db(session_factory) -> Generator[Session, None, None]:
+    """Provide a SQLAlchemy Session for direct db access in tests."""
+    db = session_factory()
+    from sqlalchemy import text
+
+    for table in ("auth_tokens", "user_roles", "roles", "users"):
+        db.execute(text(f"DELETE FROM {table}"))
+    db.commit()
     try:
         yield db
     finally:
@@ -58,11 +94,12 @@ def test_db() -> Generator[Session, None, None]:
 def client(test_db: Session) -> Generator[TestClient, None, None]:
     """Create a TestClient with overridden database dependency."""
     def override_get_db() -> Generator[Session, None, None]:
+        test_db.expire_all()
         try:
             yield test_db
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as client:
         yield client
@@ -74,16 +111,19 @@ def test_user(test_db: Session):
     """Create a test user in database."""
     from sqlalchemy import text
     
+    test_user_id = "12345678-1234-5678-1234-567812345678"
+    test_role_id = "87654321-4321-8765-4321-876543210987"
+    
     # Create admin role
     test_db.execute(text("INSERT INTO roles (id, name) VALUES (:id, :name)"), 
-                   {"id": "test-role-id", "name": "admin"})
+                   {"id": test_role_id, "name": "admin"})
     
     # Create test user
     test_db.execute(text("""
         INSERT INTO users (id, email, password_hash, created_at, updated_at) 
         VALUES (:id, :email, :hash, :created, :updated)
     """), {
-        "id": "test-user-id", 
+        "id": test_user_id, 
         "email": "test@example.com",
         "hash": "$2b$12$dummy_hash_for_testing",
         "created": "2024-01-01T00:00:00Z",
@@ -92,14 +132,14 @@ def test_user(test_db: Session):
     
     # Link user to role
     test_db.execute(text("INSERT INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)"),
-                   {"user_id": "test-user-id", "role_id": "test-role-id"})
+                   {"user_id": test_user_id, "role_id": test_role_id})
     
     test_db.commit()
     
     # Return a simple object that mimics User interface
     class SimpleUser:
         def __init__(self):
-            self.id = "test-user-id"
+            self.id = test_user_id
             self.email = "test@example.com"
     
     return SimpleUser()

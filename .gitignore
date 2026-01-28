@@ -1,4 +1,89 @@
 .opencode
 .opencode/*
+.sysphus/*
+.sysphus
 
+# Python cache and package artifacts
 .pytest_cache/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+pip-wheel-metadata/
+*.egg-info/
+*.egg
+*.whl
+*.manifest
+
+# Virtual environments and installs
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Test and coverage outputs
+coverage/
+htmlcov/
+reports/
+tests/__pycache__/
+*.coverage
+coverage.xml
+pytestdebug.log
+
+# Frontend dependencies and build
+node_modules/
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+
+# Playwright test artifacts
+frontend/test/playwright-report/
+frontend/test/test-results/
+frontend/test/screenshots/
+frontend/test/videos/
+frontend/test/traces/
+frontend/test/node_modules/
+
+# Build and distribution output
+build/
+dist/
+out/
+release/
+public/build/
+
+# Docker local artifacts
+docker-compose.override.yml
+docker-compose.override.yaml
+docker-compose.*.local.yml
+docker-compose.*.local.yaml
+
+# IDE/editor/system files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.history/
+*.log
+*.swp
+*.swo
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+!.env.example
+
+# Miscellaneous
+.mypy_cache/
+.ruff_cache/
+.cache/
+test-results/
+docs/_build/
