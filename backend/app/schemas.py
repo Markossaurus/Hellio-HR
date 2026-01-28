@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
+from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -121,3 +123,76 @@ class PositionUpdateRequest(BaseSchema):
     nice_to_have: list[str] | None = None
     salary_range: SalaryRange | None = None
     closed_at: datetime | None = None
+
+
+class ExtractionStatus(str, Enum):
+    SUCCESS = "success"
+    FAILED_VALIDATION = "failed_validation"
+    LLM_ERROR = "llm_error"
+    PARSE_ERROR = "parse_error"
+
+
+class DocumentUploadResponse(BaseSchema):
+    id: str
+    content_hash: str
+    status: str
+    message: str
+
+
+class DocumentMetadata(BaseSchema):
+    id: str
+    type: str
+    content_type: str
+    display_name: str
+    content_hash: str
+    candidate_id: str | None = None
+    created_at: datetime
+
+
+class DocumentText(BaseSchema):
+    id: str
+    extracted_text: str
+    parser_version: str
+    created_at: datetime
+
+
+class DocumentExtraction(BaseSchema):
+    id: str
+    document_id: str
+    heuristic_json: dict[str, Any]
+    llm_raw_output: str
+    extracted_json_validated: dict[str, Any] | None = None
+    extraction_schema_version: str
+    status: ExtractionStatus
+    error_details: dict[str, Any] | None = None
+    provider: str
+    model: str
+    prompt_version: str
+    token_estimate_in: int | None = None
+    token_estimate_out: int | None = None
+    cost_estimate_usd: float | None = None
+    elapsed_ms: int | None = None
+    created_at: datetime
+
+
+class DocumentSummary(BaseSchema):
+    id: str
+    document_id: str
+    summary_text: str
+    prompt_version: str
+    provider: str
+    model: str
+    token_estimate_in: int | None = None
+    token_estimate_out: int | None = None
+    created_at: datetime
+
+
+class IngestRequest(BaseSchema):
+    force_reingest: bool = False
+
+
+class IngestResponse(BaseSchema):
+    document_id: str
+    extraction_id: str
+    status: str
+    summary: str | None = None
