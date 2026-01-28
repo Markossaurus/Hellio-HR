@@ -1,7 +1,6 @@
 .opencode
 .opencode/*
-.sysphus/*
-.sysphus
+.sisyphus/
 
 # Python cache and package artifacts
 .pytest_cache/
