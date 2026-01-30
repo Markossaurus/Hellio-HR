@@ -1,5 +1,6 @@
 import copy
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.auth import get_current_user
 from app.db import get_db
-from app.models import Candidate, User, Document
+from app.models import Candidate, User, Document, DocumentSummary
 
 router = APIRouter()
 
@@ -32,6 +33,19 @@ def _get_latest_cv_document(db: Session, candidate_id) -> Document | None:
 def _build_candidate_response_dict(db: Session, candidate: Candidate) -> dict:
     profile_json = copy.deepcopy(candidate.profile.profile_json) if candidate.profile else {}
 
+    # Get latest CV document and its summary
+    cv_doc = _get_latest_cv_document(db, candidate.id)
+    summary_text = None
+    if cv_doc:
+        summary = db.execute(
+            select(DocumentSummary)
+            .where(DocumentSummary.document_id == cv_doc.id)
+            .order_by(DocumentSummary.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if summary:
+            summary_text = summary.summary_text
+
     # Base candidate fields (authoritative)
     data: dict[str, Any] = {
         "id": str(candidate.id),
@@ -46,12 +60,11 @@ def _build_candidate_response_dict(db: Session, candidate: Candidate) -> dict:
         "skills": profile_json.get("skills") or [],
         "experience": profile_json.get("experience") or [],
         "education": profile_json.get("education") or [],
-        "summary": profile_json.get("summary"),
+        "summary": summary_text,  # Use DocumentSummary instead of profile_json
         "position_ids": [str(link.position_id) for link in candidate.positions] if candidate.positions else [],
         "cv_document": None,
     }
 
-    cv_doc = _get_latest_cv_document(db, candidate.id)
     if cv_doc:
         data["cv_document"] = {
             "id": str(cv_doc.id),

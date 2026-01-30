@@ -9,6 +9,8 @@ from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
+from pydantic import BaseModel
+
 from app.config import settings
 from app.models import (
     CandidateProfile,
@@ -22,7 +24,11 @@ from app.prompts import load_prompt
 from app.services.heuristics import extract_all
 from app.services.llm import LLMRequest, get_provider
 from app.services.parsing import parse_document
-from app.services.validation import validate_extraction
+from app.services.validation import validate_extraction, ExtractionSchema
+
+
+class SummarySchema(BaseModel):
+    summary: str
 
 
 @dataclass
@@ -39,6 +45,7 @@ class IngestionPipeline:
     async def ingest(
         self, document_id: UUID, db: Session, force: bool = False
     ) -> IngestResult:
+        candidate = None
         doc = db.get(Document, document_id)
         if not doc:
             return IngestResult(
@@ -71,12 +78,20 @@ class IngestionPipeline:
                     .scalars()
                     .first()
                 )
+                
+                existing_doc = db.get(Document, existing_extraction.document_id)
+                if existing_doc and existing_doc.candidate_id:
+                    doc.candidate_id = existing_doc.candidate_id
+                    db.add(doc)
+                    db.commit()
+
                 return IngestResult(
                     document_id=document_id,
                     extraction_id=existing_extraction.id,
                     summary_id=summary.id if summary else None,
                     status="success",
                     errors=[],
+                    candidate_id=doc.candidate_id,
                 )
 
         try:
@@ -109,7 +124,11 @@ class IngestionPipeline:
             provider = get_provider(settings.llm_provider)
             try:
                 extraction_resp = await provider.generate(
-                    LLMRequest(prompt=prompt, system_prompt=system_prompt),
+                    LLMRequest(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        schema=ExtractionSchema
+                    ),
                     prompt_version=prompt_version,
                 )
             except Exception as exc:
@@ -176,7 +195,11 @@ class IngestionPipeline:
 
                 try:
                     summary_resp = await provider.generate(
-                        LLMRequest(prompt=summary_prompt, system_prompt=summary_system_prompt),
+                        LLMRequest(
+                            prompt=summary_prompt,
+                            system_prompt=summary_system_prompt,
+                            schema=SummarySchema
+                        ),
                         prompt_version=summary_prompt_version,
                     )
                 except Exception as exc:
@@ -192,7 +215,7 @@ class IngestionPipeline:
 
                 summary = DocumentSummary(
                     document_id=document_id,
-                    summary_text=summary_resp.content,
+                    summary_text=json.loads(summary_resp.content)["summary"],
                     prompt_version=summary_resp.prompt_version,
                     provider=summary_resp.provider,
                     model=summary_resp.model,
@@ -202,7 +225,7 @@ class IngestionPipeline:
                 db.add(summary)
                 db.flush()
                 summary_id = summary.id
-
+                
                 def _get_str(d: dict, key: str) -> str | None:
                     v = d.get(key)
                     if isinstance(v, str) and v.strip():
@@ -214,8 +237,6 @@ class IngestionPipeline:
                 name = _get_str(validated_json, "name") or doc.display_name
                 location = _get_str(validated_json, "location")
                 title = _get_str(validated_json, "title")
-
-                candidate = None
 
                 if email:
                     candidate = (
@@ -287,6 +308,7 @@ class IngestionPipeline:
                 summary_id=summary_id,
                 status="success",
                 errors=[],
+                candidate_id=candidate.id if candidate else None,
             )
 
         except Exception as exc:

@@ -1,10 +1,6 @@
 import { getToken } from '../auth/store.js';
 import { API_BASE_URL } from '../config.js';
 
-/**
- * Download a CV document
- * Opens the CV in a new tab or triggers download
- */
 export async function downloadCv(documentId) {
   const token = getToken();
   
@@ -18,11 +14,9 @@ export async function downloadCv(documentId) {
     throw new Error('Failed to download document');
   }
   
-  // Get the blob and create download link
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
   
-  // Get filename from Content-Disposition header or use default
   const contentDisposition = response.headers.get('Content-Disposition');
   let filename = 'cv.pdf';
   if (contentDisposition) {
@@ -30,7 +24,6 @@ export async function downloadCv(documentId) {
     if (match) filename = match[1];
   }
   
-  // Create temporary link and click it
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
@@ -40,9 +33,6 @@ export async function downloadCv(documentId) {
   window.URL.revokeObjectURL(url);
 }
 
-/**
- * Open CV in new tab for viewing
- */
 export async function viewCv(documentId) {
   const token = getToken();
   
@@ -59,4 +49,46 @@ export async function viewCv(documentId) {
   const blob = await response.blob();
   const url = window.URL.createObjectURL(blob);
   window.open(url, '_blank');
+}
+
+export async function uploadCv(file) {
+  const token = getToken();
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
+    body: formData
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to upload CV');
+  }
+  
+  return await response.json();
+}
+
+export async function ingestDocument(documentId, forceReingest = false) {
+  const token = getToken();
+  
+  const response = await fetch(`${API_BASE_URL}/documents/${documentId}/ingest`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ force_reingest: forceReingest })
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to ingest document');
+  }
+  
+  return await response.json();
 }

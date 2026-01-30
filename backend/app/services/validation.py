@@ -75,73 +75,6 @@ class ExtractionSchema(BaseModel):
     education: list[CandidateEducation]
 
 
-def _coerce_to_str(value) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    return str(value)
-
-
-def _coerce_fields(payload: JSONObject) -> JSONObject:
-    exp = payload.get("experience")
-    if isinstance(exp, list):
-        for item in exp:
-            if not isinstance(item, dict):
-                continue
-
-            # required string fields
-            if "id" in item:
-                item["id"] = _coerce_to_str(item.get("id"))
-            if "company" in item:
-                item["company"] = _coerce_to_str(item.get("company"))
-            if "title" in item:
-                item["title"] = _coerce_to_str(item.get("title"))
-            if "description" in item:
-                item["description"] = _coerce_to_str(item.get("description"))
-            if "start_date" in item:
-                item["start_date"] = _coerce_to_str(item.get("start_date"))
-            if "end_date" in item:
-                item["end_date"] = _coerce_to_str(item.get("end_date"))
-
-    edu = payload.get("education")
-    if isinstance(edu, list):
-        for item in edu:
-            if not isinstance(item, dict):
-                continue
-
-            if "id" in item:
-                item["id"] = _coerce_to_str(item.get("id"))
-            if "institution" in item:
-                item["institution"] = _coerce_to_str(item.get("institution"))
-            if "degree" in item:
-                item["degree"] = _coerce_to_str(item.get("degree"))
-            if "field" in item:
-                item["field"] = _coerce_to_str(item.get("field"))
-            if "start_date" in item:
-                item["start_date"] = _coerce_to_str(item.get("start_date"))
-            if "end_date" in item:
-                item["end_date"] = _coerce_to_str(item.get("end_date"))
-
-    skills = payload.get("skills")
-    if isinstance(skills, list):
-        for item in skills:
-            if not isinstance(item, dict):
-                continue
-
-            if "id" in item:
-                item["id"] = _coerce_to_str(item.get("id"))
-            if "name" in item:
-                item["name"] = _coerce_to_str(item.get("name"))
-            if "level" in item:
-                item["level"] = _coerce_to_str(item.get("level"))
-
-    for key in ("name", "email", "phone", "location", "title", "summary"):
-        if key in payload:
-            payload[key] = _coerce_to_str(payload.get(key))
-
-    return payload
-
 
 
 
@@ -154,7 +87,6 @@ def validate_extraction(raw_json: str) -> tuple[JSONObject | None, list[str]]:
     if not isinstance(payload, dict):
         return None, ["Invalid JSON: root must be an object"]
 
-    payload = _coerce_fields(payload)
 
     try:
         extraction = ExtractionSchema.model_validate(payload)

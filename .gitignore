@@ -86,3 +86,7 @@ Thumbs.db
 .cache/
 test-results/
 docs/_build/
+
+# Specific files to ignore
+
+read-parsed-pdf.py

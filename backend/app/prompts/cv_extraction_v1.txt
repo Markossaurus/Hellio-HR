@@ -48,7 +48,11 @@ Output JSON schema (exact field names and types):
 }
 
 Rules:
+- Extract ALL experience entries found in the CV. Do not skip any.
+- Extract ALL education entries found in the CV. Do not skip any.
+- Extract ALL skills mentioned in the CV.
 - If a scalar field is missing, use null.
+- Look for the job title
 - If a list has no entries, use an empty array.
 - Dates use "YYYY-MM" when available; otherwise use "YYYY" or null.
 - Use "present" for ongoing roles when explicitly indicated.
