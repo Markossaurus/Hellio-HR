@@ -197,3 +197,17 @@ class IngestResponse(BaseSchema):
     status: str
     summary: str
     candidate_id: str | None = None
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    history: list[dict] | None = None
+    model: str = "ollama"
+
+
+class ChatResponse(BaseModel):
+    answer: str | None = None
+    sql: str | None = None
+    row_count: int | None = None
+    columns: list[str] | None = None
+    error: str | None = None

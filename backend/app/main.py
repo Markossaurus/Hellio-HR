@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes import auth, candidates, documents, positions
+from app.routes import auth, candidates, chat, documents, positions
 
 app = FastAPI(title="Hellio HR API")
 
@@ -17,6 +17,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(candidates.router, prefix="/candidates", tags=["candidates"])
 app.include_router(positions.router, prefix="/positions", tags=["positions"])
 app.include_router(documents.router, tags=["documents"])
+app.include_router(chat.router, tags=["chat"])
 
 
 @app.get("/health")
