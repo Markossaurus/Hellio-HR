@@ -1,0 +1,1 @@
+ALTER TABLE documents ALTER COLUMN content_type TYPE VARCHAR(100);

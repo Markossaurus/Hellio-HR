@@ -10,54 +10,23 @@ leave ambiguous values null.
 
 Return ONLY valid JSON. No prose, no markdown, no code fences.
 
-Output JSON schema (exact field names and types):
-{
-  "name": "string",
-  "email": "string|null",
-  "phone": "string|null",
-  "location": "string|null",
-  "title": "string|null",
-  "summary": "string|null",
-  "skills": [
-    {
-      "id": "string",
-      "name": "string",
-      "level": "string"
-    }
-  ],
-  "experience": [
-    {
-      "id": "string",
-      "company": "string",
-      "title": "string",
-      "start_date": "string",
-      "end_date": "string",
-      "description": "string"
-    }
-  ],
-  "education": [
-    {
-      "id": "string",
-      "institution": "string",
-      "degree": "string",
-      "field": "string",
-      "start_date": "string",
-      "end_date": "string"
-    }
-  ]
-}
-
 Rules:
 - Extract ALL experience entries found in the CV. Do not skip any.
 - Extract ALL education entries found in the CV. Do not skip any.
 - Extract ALL skills mentioned in the CV.
 - If a scalar field is missing, use null.
-- Look for the job title
+- Try extra hard to look for the job title, Job title normalization:
+   - Extract the core role noun phrase only (e.g., “DevOps Engineer”, “Backend Engineer”, “Data Analyst”).
+   - Remove leading modifiers that indicate personality, seniority adjectives used as descriptors, or marketing language, including but not limited to:
+     “motivated”, “seasoned”, “passionate”, “dynamic”, “results-driven”, “enthusiastic”, “aspiring”, “dedicated”, “proactive”, “innovative”, “self-motivated”, “hardworking”, “eager”, “driven”.
+   - Seniority handling: keep seniority level only if it is part of the formal title (e.g., “Junior DevOps Engineer”, “Senior Software Engineer”).
+     But remove non-title adjectives like “Motivated”, “Recently completed”, “Eager to”, “Strong”, etc.
+   - Sometimes the profession is in an "about me" type of section, you can also find it in your own created summary.
+   - If you didn't find the title, use the job title from the last job in the experience part.
 - If a list has no entries, use an empty array.
 - Dates use "YYYY-MM" when available; otherwise use "YYYY" or null.
 - Use "present" for ongoing roles when explicitly indicated.
 - Create stable ids per list item (e.g., "skill_1", "exp_2", "edu_1").
 - Do not invent facts. Use only the CV text and heuristic_json.
 - For required string fields (skills[].id/name/level, experience[].id/company/title/start_date/end_date/description, education[].id/institution/degree/field/start_date/end_date): NEVER use null. Use empty string "" if unknown.
-- For optional scalar fields (email, phone, location, title, summary): use null if missing.
-- Do not use markdown. Do not use backticks. Output must start with { and end with }.
+- For optional scalar fields (email, phone, location, summary): use null if missing.

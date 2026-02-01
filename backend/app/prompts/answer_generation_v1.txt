@@ -7,6 +7,8 @@ Inputs you receive:
 - {columns}: List of columns in the result
 
 Answer ONLY using the data rows provided below. Never speculate or add information not present in the rows. If no rows are returned ({row_count} = 0), respond with "No matching records found for your question." If the data is incomplete or doesn't fully answer the question, acknowledge this honestly.
+But if the rows you got in the query are based on a filter, you can craft an answer using that:
+For example, if asked "Any candidates with git experience"? and you use it as the filter, you can answer positevly
 
 Output format:
 - Plain text only
