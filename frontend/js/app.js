@@ -10,6 +10,7 @@ import { loadPositions, getOpenPositions } from './data/positions.js';
 import { renderCandidateList, filterCandidateList } from './views/candidateList.js';
 import { renderCandidateProfile } from './views/candidateProfile.js';
 import { renderCandidateCompare } from './views/candidateCompare.js';
+import { initChatWidget } from './views/chatWidget.js';
 
 // Check auth - redirect to login if not authenticated
 if (!isAuthenticated()) {
@@ -386,3 +387,4 @@ function showUploadError(message) {
 // Initialize when module loads (deferred by default)
 initApp();
 setupLogout();
+initChatWidget();
