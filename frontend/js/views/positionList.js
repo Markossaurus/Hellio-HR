@@ -11,13 +11,16 @@ export function renderPositionList(container, { onSelect, selectedId }) {
   
   container.innerHTML = `
     <ul class="list">
-      ${positions.map(p => `
+      ${positions.map(p => {
+        const metaParts = [normalizeMeta(p.department), normalizeMeta(p.location)].filter(Boolean);
+        const meta = metaParts.length > 0 ? metaParts.join(' • ') : '';
+        return `
         <li class="list-item ${selectedId === p.id ? 'selected' : ''}" data-id="${p.id}">
           <div class="candidate-name">${p.title}</div>
-          <div class="candidate-title">${p.department}</div>
-          <div class="candidate-meta">${p.location}</div>
+          ${meta ? `<div class="candidate-title">${meta}</div>` : ''}
         </li>
-      `).join('')}
+      `;
+      }).join('')}
     </ul>
   `;
   
@@ -41,7 +44,7 @@ export function renderPositionDetail(container, positionId) {
       <div class="card-header">
         <div>
           <h2 class="card-title">${position.title}</h2>
-          <div class="candidate-title">${position.department} • ${position.location}</div>
+          <div class="candidate-title">${[normalizeMeta(position.department), normalizeMeta(position.location)].filter(Boolean).join(' • ')}</div>
         </div>
         <span class="position-status status-${position.status}">${position.status.toUpperCase()}</span>
       </div>
@@ -123,17 +126,29 @@ export function filterPositionList(container, query, options = {}) {
   
   container.innerHTML = `
     <ul class="list">
-      ${results.map(p => `
+      ${results.map(p => {
+        const metaParts = [normalizeMeta(p.department), normalizeMeta(p.location)].filter(Boolean);
+        const meta = metaParts.length > 0 ? metaParts.join(' • ') : '';
+        return `
         <li class="list-item ${selectedId === p.id ? 'selected' : ''}" data-id="${p.id}">
           <div class="candidate-name">${p.title}</div>
-          <div class="candidate-title">${p.department}</div>
-          <div class="candidate-meta">${p.location}</div>
+          ${meta ? `<div class="candidate-title">${meta}</div>` : ''}
         </li>
-      `).join('')}
+      `;
+      }).join('')}
     </ul>
   `;
   
   container.querySelectorAll('.list-item').forEach(item => {
     item.addEventListener('click', () => onSelect?.(item.dataset.id));
   });
+}
+
+function normalizeMeta(value) {
+  if (!value) return '';
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+  if (!trimmed || lowered === 'null' || lowered === 'undefined') return '';
+  return trimmed;
 }

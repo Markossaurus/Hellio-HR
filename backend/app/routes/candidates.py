@@ -2,14 +2,16 @@ import copy
 import uuid
 from typing import Any
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import schemas
-from app.auth import get_current_user
-from app.db import get_db
-from app.models import Candidate, User, Document, DocumentSummary
+from .. import schemas
+from ..auth import get_current_user
+from ..db import get_db
+from ..models import Candidate, CandidatePosition, Document, DocumentSummary, Position, User
 
 router = APIRouter()
 
@@ -30,7 +32,7 @@ def _get_latest_cv_document(db: Session, candidate_id) -> Document | None:
 
 
 
-def _build_candidate_response_dict(db: Session, candidate: Candidate) -> dict:
+def _build_candidate_response_dict(db: Session, candidate: Candidate) -> dict[str, Any]:
     profile_json = copy.deepcopy(candidate.profile.profile_json) if candidate.profile else {}
 
     # Get latest CV document and its summary
@@ -116,3 +118,89 @@ def get_candidate(
     payload = _build_candidate_response_dict(db, candidate)
     return schemas.CandidateResponse.model_validate(payload)
 
+
+@router.post("/{candidate_id}/positions/{position_id}", response_model=schemas.CandidateResponse)
+def add_candidate_position(
+    candidate_id: str,
+    position_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> schemas.CandidateResponse:
+    candidate_uuid = _parse_uuid(candidate_id)
+    position_uuid = _parse_uuid(position_id)
+
+    candidate = db.execute(select(Candidate).where(Candidate.id == candidate_uuid)).scalar_one_or_none()
+    if not candidate:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    position = db.execute(select(Position).where(Position.id == position_uuid)).scalar_one_or_none()
+    if not position:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Position not found")
+
+    existing = (
+        db.execute(
+            select(CandidatePosition)
+            .where(CandidatePosition.candidate_id == candidate.id)
+            .where(CandidatePosition.position_id == position.id)
+        )
+        .scalars()
+        .first()
+    )
+
+    now = datetime.now(timezone.utc)
+    if not existing:
+        db.add(
+            CandidatePosition(
+                candidate_id=candidate.id,
+                position_id=position.id,
+                stage="applied",
+                applied_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+    candidate.updated_at = now
+    db.commit()
+
+    payload = _build_candidate_response_dict(db, candidate)
+    return schemas.CandidateResponse.model_validate(payload)
+
+
+@router.delete("/{candidate_id}/positions/{position_id}", response_model=schemas.CandidateResponse)
+def remove_candidate_position(
+    candidate_id: str,
+    position_id: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+) -> schemas.CandidateResponse:
+    candidate_uuid = _parse_uuid(candidate_id)
+    position_uuid = _parse_uuid(position_id)
+
+    candidate = db.execute(select(Candidate).where(Candidate.id == candidate_uuid)).scalar_one_or_none()
+    if not candidate:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Candidate not found")
+
+    link = (
+        db.execute(
+            select(CandidatePosition)
+            .where(CandidatePosition.candidate_id == candidate_uuid)
+            .where(CandidatePosition.position_id == position_uuid)
+        )
+        .scalars()
+        .first()
+    )
+
+    if link:
+        db.delete(link)
+        candidate.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+    payload = _build_candidate_response_dict(db, candidate)
+    return schemas.CandidateResponse.model_validate(payload)
+
+
+def _parse_uuid(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resource not found") from exc

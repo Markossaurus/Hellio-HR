@@ -190,18 +190,22 @@ function showAddPositionModal(candidateId) {
   
   listContainer.innerHTML = positions.length > 0
     ? `<ul class="list">
-        ${positions.map(p => `
+        ${positions.map(p => {
+          const metaParts = [normalizeMeta(p.department), normalizeMeta(p.location)].filter(Boolean);
+          const meta = metaParts.length > 0 ? metaParts.join(' • ') : '';
+          return `
           <li class="list-item" data-position-id="${p.id}" style="cursor: pointer;">
             <div class="candidate-name">${p.title}</div>
-            <div class="candidate-title">${p.department}</div>
+            ${meta ? `<div class="candidate-title">${meta}</div>` : ''}
           </li>
-        `).join('')}
+        `;
+        }).join('')}
       </ul>`
     : '<div class="empty-state">No open positions</div>';
   
   listContainer.querySelectorAll('.list-item').forEach(item => {
-    item.addEventListener('click', () => {
-      addPositionToCandidate(candidateId, item.dataset.positionId);
+    item.addEventListener('click', async () => {
+      await addPositionToCandidate(candidateId, item.dataset.positionId);
       hideModal();
       selectCandidate(candidateId);
     });
@@ -214,8 +218,8 @@ function hideModal() {
   document.getElementById('modal-add-position')?.classList.remove('active');
 }
 
-function handleRemovePosition(candidateId, positionId) {
-  removePositionFromCandidate(candidateId, positionId);
+async function handleRemovePosition(candidateId, positionId) {
+  await removePositionFromCandidate(candidateId, positionId);
   selectCandidate(candidateId);
 }
 
@@ -382,6 +386,15 @@ function showUploadError(message) {
   resultDiv.classList.add('status-message', 'status-error');
   resultDiv.classList.remove('hidden');
   resultDiv.innerHTML = `<svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> ${message}`;
+}
+
+function normalizeMeta(value) {
+  if (!value) return '';
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+  if (!trimmed || lowered === 'null' || lowered === 'undefined') return '';
+  return trimmed;
 }
 
 // Initialize when module loads (deferred by default)

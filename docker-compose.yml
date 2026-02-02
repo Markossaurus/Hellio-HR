@@ -37,12 +37,14 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/hellio_hr
       SECRET_KEY: dev-secret-key-change-in-prod
       CV_STORAGE_PATH: /app/data/cvs
+      POSITIONS_ASSETS_PATH: /app/data/positions
       OLLAMA_BASE_URL: http://host.docker.internal:11434
     ports:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
       - ./frontend/assets/cvs:/app/data/cvs:rw
+      - ./frontend/assets/positions:/app/data/positions:ro
       - ./backend/test:/app/test
     depends_on:
       db:

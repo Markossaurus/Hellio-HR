@@ -74,23 +74,14 @@ export function searchCandidates(query, filters = {}) {
 }
 
 // Local-only mutations (no backend support yet)
-export function addPositionToCandidate(candidateId, positionId) {
-  const candidate = getCandidateById(candidateId);
-  if (candidate && candidate.positionIds && !candidate.positionIds.includes(positionId)) {
-    candidate.positionIds.push(positionId);
-    return true;
-  }
-  return false;
+export async function addPositionToCandidate(candidateId, positionId) {
+  await api.post(`/candidates/${candidateId}/positions/${positionId}`);
+  await loadCandidates();
+  return true;
 }
 
-export function removePositionFromCandidate(candidateId, positionId) {
-  const candidate = getCandidateById(candidateId);
-  if (candidate && candidate.positionIds) {
-    const idx = candidate.positionIds.indexOf(positionId);
-    if (idx > -1) {
-      candidate.positionIds.splice(idx, 1);
-      return true;
-    }
-  }
-  return false;
+export async function removePositionFromCandidate(candidateId, positionId) {
+  await api.delete(`/candidates/${candidateId}/positions/${positionId}`);
+  await loadCandidates();
+  return true;
 }

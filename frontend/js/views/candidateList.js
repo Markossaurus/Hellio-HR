@@ -10,13 +10,16 @@ export function renderCandidateList(container, { onSelect, selectedIds = [] }) {
   
   container.innerHTML = `
     <ul class="list">
-      ${candidates.map(c => `
+      ${candidates.map(c => {
+        const metaParts = [normalizeMeta(c.title), normalizeMeta(c.location)].filter(Boolean);
+        const meta = metaParts.length > 0 ? metaParts.join(' • ') : '';
+        return `
         <li class="list-item ${selectedIds.includes(c.id) ? 'selected' : ''}" data-id="${c.id}">
           <div class="candidate-name">${c.name}</div>
-          <div class="candidate-title">${c.title}</div>
-          <div class="candidate-meta">${c.location}</div>
+          ${meta ? `<div class="candidate-title">${meta}</div>` : ''}
         </li>
-      `).join('')}
+      `;
+      }).join('')}
     </ul>
   `;
   
@@ -36,17 +39,29 @@ export function filterCandidateList(container, query, options = {}) {
   
   container.innerHTML = `
     <ul class="list">
-      ${results.map(c => `
+      ${results.map(c => {
+        const metaParts = [normalizeMeta(c.title), normalizeMeta(c.location)].filter(Boolean);
+        const meta = metaParts.length > 0 ? metaParts.join(' • ') : '';
+        return `
         <li class="list-item ${selectedIds.includes(c.id) ? 'selected' : ''}" data-id="${c.id}">
           <div class="candidate-name">${c.name}</div>
-          <div class="candidate-title">${c.title}</div>
-          <div class="candidate-meta">${c.location}</div>
+          ${meta ? `<div class="candidate-title">${meta}</div>` : ''}
         </li>
-      `).join('')}
+      `;
+      }).join('')}
     </ul>
   `;
   
   container.querySelectorAll('.list-item').forEach(item => {
     item.addEventListener('click', () => onSelect?.(item.dataset.id));
   });
+}
+
+function normalizeMeta(value) {
+  if (!value) return '';
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  const lowered = trimmed.toLowerCase();
+  if (!trimmed || lowered === 'null' || lowered === 'undefined') return '';
+  return trimmed;
 }

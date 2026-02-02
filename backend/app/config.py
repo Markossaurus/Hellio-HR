@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     )
     secret_key: str = Field(default="change-me", validation_alias="SECRET_KEY")
     cv_storage_path: str = Field(default="data/cv_documents", validation_alias="CV_STORAGE_PATH")
+    positions_assets_path: str = Field(
+        default="data/positions",
+        validation_alias="POSITIONS_ASSETS_PATH",
+    )
     
     # LLM settings
     llm_provider: str = Field(default="ollama", validation_alias="LLM_PROVIDER")
