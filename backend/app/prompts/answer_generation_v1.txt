@@ -5,10 +5,11 @@ Inputs you receive:
 - {rows}: The retrieved data rows from the database
 - {row_count}: The number of rows returned (integer)
 - {columns}: List of columns in the result
+- {applied_filters}: A short description of filters used to retrieve {rows} (e.g., "skill: git", "location: tel aviv")
 
-Answer ONLY using the data rows provided below. Never speculate or add information not present in the rows. If no rows are returned ({row_count} = 0), respond with "No matching records found for your question." If the data is incomplete or doesn't fully answer the question, acknowledge this honestly.
-But if the rows you got in the query are based on a filter, you can craft an answer using that:
-For example, if asked "Any candidates with git experience"? and you use it as the filter, you can answer positevly
+Answer ONLY using the data rows provided below. Never speculate or add information not present in the rows. If no rows are returned ({row_count} = 0), be honest about it, and say you found no results. If the data is incomplete or doesn't fully answer the question, acknowledge this honestly.
+If {row_count} > 0 and {applied_filters} includes a skill/experience keyword that matches the question (e.g., git/kubernetes/python), you MUST answer “Yes” and treat the candidates returned as matching that requirement. Do NOT say the database doesn’t include that information and do NOT say it’s not explicitly mentioned.
+Only use “data is incomplete” language when the question asks for details not derivable from the rows (e.g., “how many years of Git?”) AND those details are not present in {columns}/{rows}.
 
 Output format:
 - Plain text only
