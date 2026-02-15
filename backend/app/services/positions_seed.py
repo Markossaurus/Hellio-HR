@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..models import Position
+from .embeddings import build_position_embedding_text, generate_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class ParsedJob(TypedDict):
     location: str | None
 
 
-def seed_positions_from_assets(db: Session) -> None:
+async def seed_positions_from_assets(db: Session) -> None:
     assets_path = Path(settings.positions_assets_path)
     if not assets_path.exists():
         logger.warning("Positions assets path missing: %s", assets_path)
@@ -94,6 +95,14 @@ def seed_positions_from_assets(db: Session) -> None:
             db.add(position)
             db.flush()
             created += 1
+
+        try:
+            embedding_text = build_position_embedding_text(position)
+            embedding = await generate_embedding(embedding_text)
+            position.embedding_text = embedding_text
+            position.embedding = embedding
+        except Exception as e:
+            logger.warning(f"Embedding generation failed: {e}")
 
     db.commit()
     logger.info(

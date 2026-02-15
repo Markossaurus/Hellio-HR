@@ -111,6 +111,30 @@ class PositionListResponse(BaseSchema):
     positions: list[PositionResponse]
 
 
+class CandidateSuggestion(BaseSchema):
+    candidate_id: str
+    name: str
+    title: str | None
+    explanation: str
+
+
+class PositionSuggestionsResponse(BaseSchema):
+    position_id: str
+    suggestions: list[CandidateSuggestion]
+
+
+class PositionSuggestion(BaseSchema):
+    position_id: str
+    title: str
+    department: str | None
+    explanation: str
+
+
+class CandidateSuggestionsResponse(BaseSchema):
+    candidate_id: str
+    suggestions: list[PositionSuggestion]
+
+
 class PositionUpdateRequest(BaseSchema):
     status: str | None = None
     title: str | None = None
@@ -201,8 +225,9 @@ class IngestResponse(BaseSchema):
 
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1)
-    history: list[dict] | None = None
+    history: list[dict[str, Any]] | None = None
     model: str = "ollama"
+    retrieval_mode: str = "sql"
 
 
 class ChatResponse(BaseModel):

@@ -2,7 +2,7 @@ import { api } from './client.js';
 
 export async function sendChatQuery(question, history = []) {
   try {
-    const response = await api.post('/chat', { question, history });
+    const response = await api.post('/chat', { question, history, retrieval_mode: 'hybrid' });
     return {
       success: !response.error,
       answer: response.answer,

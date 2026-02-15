@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Mapping
 from uuid import UUID
 
 from sqlalchemy import select, func
@@ -11,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from pydantic import BaseModel
 
-from app.config import settings
-from app.models import (
+from ..config import settings
+from ..models import (
     CandidateProfile,
     Candidate,
     Document,
@@ -20,11 +22,15 @@ from app.models import (
     DocumentSummary,
     DocumentText,
 )
-from app.prompts import load_prompt
-from app.services.heuristics import extract_all
-from app.services.llm import LLMRequest, get_provider
-from app.services.parsing import parse_document
-from app.services.validation import validate_extraction, ExtractionSchema
+from ..prompts import load_prompt
+from .embeddings import build_candidate_embedding_text, generate_embedding
+from .heuristics import extract_all
+from .llm import LLMRequest, get_provider
+from .parsing import parse_document
+from .validation import validate_extraction, ExtractionSchema
+
+
+logger = logging.getLogger(__name__)
 
 
 class SummarySchema(BaseModel):
@@ -226,7 +232,7 @@ class IngestionPipeline:
                 db.flush()
                 summary_id = summary.id
                 
-                def _get_str(d: dict, key: str) -> str | None:
+                def _get_str(d: Mapping[str, object], key: str) -> str | None:
                     v = d.get(key)
                     if isinstance(v, str) and v.strip():
                         return v.strip()
@@ -300,6 +306,19 @@ class IngestionPipeline:
                 else:
                     profile.profile_json = validated_json
                     profile.updated_at = datetime.now()
+
+                if validated_json.get("summary") or validated_json.get("skills"):
+                    try:
+                        embedding_text = build_candidate_embedding_text(
+                            candidate,
+                            profile_json=validated_json,
+                            summary_text=summary.summary_text,
+                        )
+                        embedding = await generate_embedding(embedding_text)
+                        candidate.embedding_text = embedding_text
+                        candidate.embedding = embedding
+                    except Exception as e:
+                        logger.warning(f"Embedding generation failed: {e}")
             
             db.commit()
             return IngestResult(

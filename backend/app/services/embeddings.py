@@ -218,37 +218,32 @@ def find_similar_candidates(
     exclude_ids: list[UUID] | None = None,
 ) -> list[SimilarityResult]:
     position = db.get(Position, position_id)
-    if not position or not position.embedding:
+    if not position or position.embedding is None:
         return []
 
-    query_sql = (
-        "SELECT id, name, title, embedding <=> :query_embedding AS distance "
-        "FROM candidates "
-        "WHERE embedding IS NOT NULL"
-    )
-
-    params: dict[str, Any] = {
-        "query_embedding": position.embedding,
-        "limit": limit,
-    }
-
-    statement = text(query_sql)
-    statement = statement.bindparams(
-        bindparam("query_embedding", type_=Vector(settings.embedding_dimension)),
-        bindparam("limit", type_=Integer),
-    )
+    params: dict[str, Any] = {"query_embedding": position.embedding, "limit": limit}
 
     if exclude_ids:
-        statement = text(f"{query_sql} AND id NOT IN :exclude_ids ORDER BY distance ASC LIMIT :limit")
-        statement = statement.bindparams(
+        statement = text(
+            "SELECT id, name, title, embedding <=> :query_embedding AS distance "
+            "FROM candidates "
+            "WHERE embedding IS NOT NULL AND id NOT IN :exclude_ids "
+            "ORDER BY distance ASC "
+            "LIMIT :limit"
+        ).bindparams(
             bindparam("query_embedding", type_=Vector(settings.embedding_dimension)),
             bindparam("exclude_ids", expanding=True),
             bindparam("limit", type_=Integer),
         )
         params["exclude_ids"] = exclude_ids
     else:
-        statement = text(f"{query_sql} ORDER BY distance ASC LIMIT :limit")
-        statement = statement.bindparams(
+        statement = text(
+            "SELECT id, name, title, embedding <=> :query_embedding AS distance "
+            "FROM candidates "
+            "WHERE embedding IS NOT NULL "
+            "ORDER BY distance ASC "
+            "LIMIT :limit"
+        ).bindparams(
             bindparam("query_embedding", type_=Vector(settings.embedding_dimension)),
             bindparam("limit", type_=Integer),
         )
@@ -276,7 +271,7 @@ def find_similar_positions(
     limit: int = 3,
 ) -> list[SimilarityResult]:
     candidate = db.get(Candidate, candidate_id)
-    if not candidate or not candidate.embedding:
+    if not candidate or candidate.embedding is None:
         return []
 
     statement = text(
