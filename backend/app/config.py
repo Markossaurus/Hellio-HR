@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     llm_model: str = Field(default="phi4", validation_alias="LLM_MODEL")
     ollama_base_url: str = Field(default="http://host.docker.internal:11434", validation_alias="OLLAMA_BASE_URL")
 
+    embedding_model: str = Field(default="nomic-embed-text", validation_alias="EMBEDDING_MODEL")
+    embedding_dimension: int = Field(default=768, validation_alias="EMBEDDING_DIMENSION")
+    similarity_threshold: float = Field(default=0.3, validation_alias="SIMILARITY_THRESHOLD")
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

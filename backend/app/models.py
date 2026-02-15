@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Numeric, String, Text, TypeDecorator
 from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, UUID as PG_UUID
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -91,6 +92,9 @@ class Candidate(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    embedding_text: Mapped[str | None] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
+
     profile: Mapped[CandidateProfile | None] = relationship(
         "CandidateProfile", back_populates="candidate", uselist=False
     )
@@ -133,6 +137,9 @@ class Position(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    embedding_text: Mapped[str | None] = mapped_column(Text)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(768))
 
     candidates: Mapped[list[CandidatePosition]] = relationship(
         "CandidatePosition", back_populates="position"
