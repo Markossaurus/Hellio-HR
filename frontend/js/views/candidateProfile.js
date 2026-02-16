@@ -1,6 +1,10 @@
 import { getCandidateById } from '../data/candidates.js';
 import { getPositionById } from '../data/positions.js';
 import { downloadCv, viewCv } from '../api/documents.js';
+import { getCandidateSuggestions } from '../api/suggestions.js';
+
+const CANDIDATE_SUGGESTIONS_CACHE_KEY = 'hellio_candidate_suggestions_cache_v1';
+const suggestionCacheByCandidateId = loadSuggestionCache(CANDIDATE_SUGGESTIONS_CACHE_KEY);
 
 export function renderCandidateProfile(container, candidateId, { onAddPosition, onRemovePosition }) {
   const candidate = getCandidateById(candidateId);
@@ -102,8 +106,16 @@ export function renderCandidateProfile(container, candidateId, { onAddPosition, 
         </div>
         <button class="btn btn-sm btn-outline mt-1" id="btn-add-position">+ Add Position</button>
       </div>
+
+      <div class="profile-section" id="candidate-suggestions-section" data-candidate-id="${candidateId}">
+        <h3>Suggested Positions</h3>
+        <p class="text-sm text-muted">Run AI suggestions only when needed.</p>
+        ${renderCandidateSuggestionControls({ showSuggest: true, showRefresh: false })}
+      </div>
     </div>
   `;
+
+  bindCandidateSuggestionButtons(container, candidateId);
   
   container.querySelector('#btn-add-position')?.addEventListener('click', () => {
     onAddPosition?.(candidateId);
@@ -154,8 +166,137 @@ export function renderCandidateProfile(container, candidateId, { onAddPosition, 
   });
 }
 
+async function loadCandidateSuggestions(container, candidateId, options = {}) {
+  const { forceRefresh = false } = options;
+  const suggestionsContainer = container.querySelector('#candidate-suggestions-section');
+  if (!suggestionsContainer) return;
+
+  if (!forceRefresh && suggestionCacheByCandidateId.has(candidateId)) {
+    renderCandidateSuggestionList(suggestionsContainer, suggestionCacheByCandidateId.get(candidateId));
+    bindCandidateSuggestionButtons(container, candidateId);
+    return;
+  }
+
+  suggestionsContainer.innerHTML = `
+    <h3>Suggested Positions</h3>
+    <p class="text-sm text-muted">Finding relevant positions...</p>
+    ${renderCandidateSuggestionControls({ showSuggest: true, showRefresh: false, disabled: true })}
+  `;
+
+  try {
+    const { suggestions } = await getCandidateSuggestions(candidateId);
+    suggestionCacheByCandidateId.set(candidateId, suggestions || []);
+    persistSuggestionCache(CANDIDATE_SUGGESTIONS_CACHE_KEY, suggestionCacheByCandidateId);
+    const latestSuggestionsContainer = container.querySelector('#candidate-suggestions-section');
+
+    if (!latestSuggestionsContainer || latestSuggestionsContainer.dataset.candidateId !== candidateId) {
+      return;
+    }
+
+    renderCandidateSuggestionList(latestSuggestionsContainer, suggestions || []);
+    bindCandidateSuggestionButtons(container, candidateId);
+  } catch (error) {
+    console.error('Error loading candidate suggestions:', error);
+    const latestSuggestionsContainer = container.querySelector('#candidate-suggestions-section');
+    if (!latestSuggestionsContainer || latestSuggestionsContainer.dataset.candidateId !== candidateId) {
+      return;
+    }
+
+    latestSuggestionsContainer.innerHTML = `
+      <h3>Suggested Positions</h3>
+      <p class="text-sm text-muted error">Unable to load suggestions</p>
+      ${renderCandidateSuggestionControls({ showSuggest: true, showRefresh: false })}
+    `;
+    bindCandidateSuggestionButtons(container, candidateId);
+  }
+}
+
+function renderCandidateSuggestionList(container, suggestions) {
+  if (!suggestions || suggestions.length === 0) {
+    container.innerHTML = `
+      <h3>Suggested Positions</h3>
+      <p class="text-sm text-muted">No relevant positions found</p>
+      ${renderCandidateSuggestionControls({ showSuggest: true, showRefresh: false })}
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <h3>Suggested Positions</h3>
+    <div class="suggestions-list">
+      ${suggestions.slice(0, 3).map((suggestion) => `
+        <div class="card mb-2" style="border: 1px solid #eee; padding: 1rem;">
+          <div class="candidate-name">${suggestion.title}</div>
+          ${suggestion.department ? `<div class="candidate-title">${suggestion.department}</div>` : ''}
+          <div class="text-sm text-muted">Match score: ${formatSimilarityScore(suggestion.similarityScore)}</div>
+          <div class="mt-2 text-sm text-muted bg-gray-50 p-2 rounded">
+            <strong>Why:</strong> ${suggestion.explanation}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    ${renderCandidateSuggestionControls({ showSuggest: false, showRefresh: true, withMarginTop: true })}
+  `;
+}
+
+function renderCandidateSuggestionControls({ showSuggest, showRefresh, disabled = false, withMarginTop = false }) {
+  const buttons = [];
+  const disabledAttr = disabled ? ' disabled' : '';
+
+  if (showSuggest) {
+    buttons.push(`<button class="btn btn-sm btn-outline" id="btn-load-candidate-suggestions"${disabledAttr}>Suggest Positions</button>`);
+  }
+
+  if (showRefresh) {
+    buttons.push(`<button class="btn btn-sm btn-outline" id="btn-refresh-candidate-suggestions"${disabledAttr}>Refresh Suggestions</button>`);
+  }
+
+  if (buttons.length === 0) return '';
+
+  return `<div class="flex" style="gap: 0.5rem;${withMarginTop ? ' margin-top: 0.75rem;' : ''}">${buttons.join('')}</div>`;
+}
+
+function bindCandidateSuggestionButtons(container, candidateId) {
+  container.querySelector('#btn-load-candidate-suggestions')?.addEventListener('click', () => {
+    loadCandidateSuggestions(container, candidateId);
+  });
+
+  container.querySelector('#btn-refresh-candidate-suggestions')?.addEventListener('click', () => {
+    suggestionCacheByCandidateId.delete(candidateId);
+    persistSuggestionCache(CANDIDATE_SUGGESTIONS_CACHE_KEY, suggestionCacheByCandidateId);
+    loadCandidateSuggestions(container, candidateId, { forceRefresh: true });
+  });
+}
+
+function loadSuggestionCache(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return new Map();
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Map();
+
+    return new Map(parsed.filter((entry) => Array.isArray(entry) && entry.length === 2));
+  } catch {
+    return new Map();
+  }
+}
+
+function persistSuggestionCache(storageKey, cacheMap) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(Array.from(cacheMap.entries())));
+  } catch {
+  }
+}
+
 function formatDateRange(start, end) {
   const startStr = start || '?';
   const endStr = end === 'present' ? 'Present' : (end || '?');
   return `${startStr} – ${endStr}`;
+}
+
+function formatSimilarityScore(score) {
+  const numericScore = Number(score);
+  if (!Number.isFinite(numericScore)) return 'N/A';
+  return `${numericScore.toFixed(1)}/10`;
 }

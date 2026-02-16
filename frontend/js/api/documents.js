@@ -89,6 +89,11 @@ export async function ingestDocument(documentId, forceReingest = false) {
     const error = await response.json();
     throw new Error(error.detail || 'Failed to ingest document');
   }
-  
-  return await response.json();
+
+  const result = await response.json();
+  if (result.status !== 'success') {
+    throw new Error(result.summary || 'Failed to ingest document');
+  }
+
+  return result;
 }

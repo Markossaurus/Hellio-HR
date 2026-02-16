@@ -115,6 +115,7 @@ class CandidateSuggestion(BaseSchema):
     candidate_id: str
     name: str
     title: str | None
+    similarity_score: float
     explanation: str
 
 
@@ -127,6 +128,7 @@ class PositionSuggestion(BaseSchema):
     position_id: str
     title: str
     department: str | None
+    similarity_score: float
     explanation: str
 
 

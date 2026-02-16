@@ -307,18 +307,35 @@ class IngestionPipeline:
                     profile.profile_json = validated_json
                     profile.updated_at = datetime.now()
 
-                if validated_json.get("summary") or validated_json.get("skills"):
-                    try:
-                        embedding_text = build_candidate_embedding_text(
-                            candidate,
-                            profile_json=validated_json,
-                            summary_text=summary.summary_text,
-                        )
-                        embedding = await generate_embedding(embedding_text)
-                        candidate.embedding_text = embedding_text
-                        candidate.embedding = embedding
-                    except Exception as e:
-                        logger.warning(f"Embedding generation failed: {e}")
+                embedding_text = build_candidate_embedding_text(
+                    candidate,
+                    profile_json=validated_json,
+                    summary_text=summary.summary_text,
+                )
+                if not embedding_text.strip():
+                    db.rollback()
+                    return IngestResult(
+                        document_id=document_id,
+                        extraction_id=None,
+                        summary_id=None,
+                        status="llm_error",
+                        errors=["Embedding generation failed: extracted profile has no usable text"],
+                    )
+
+                try:
+                    embedding = await generate_embedding(embedding_text)
+                except Exception as exc:
+                    db.rollback()
+                    return IngestResult(
+                        document_id=document_id,
+                        extraction_id=None,
+                        summary_id=None,
+                        status="llm_error",
+                        errors=[f"Embedding generation failed: {exc}"],
+                    )
+
+                candidate.embedding_text = embedding_text
+                candidate.embedding = embedding
             
             db.commit()
             return IngestResult(

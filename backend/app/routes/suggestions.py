@@ -160,6 +160,7 @@ async def get_position_suggestions(
                 candidate_id=str(result.id),
                 name=result.name,
                 title=result.title,
+                similarity_score=float(result.llm_score),
                 explanation=explanation,
             )
         )
@@ -170,7 +171,7 @@ async def get_position_suggestions(
 @router.get("/candidates/{candidate_id}/suggestions", response_model=schemas.CandidateSuggestionsResponse)
 async def get_candidate_suggestions(
     candidate_id: str,
-    limit: int = Query(default=3, le=20),
+    limit: int = Query(default=3, ge=1, le=3),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> schemas.CandidateSuggestionsResponse:
@@ -210,6 +211,7 @@ async def get_candidate_suggestions(
                 position_id=str(result.id),
                 title=result.title or result.name,
                 department=position.department if position else None,
+                similarity_score=float(result.llm_score),
                 explanation=explanation,
             )
         )

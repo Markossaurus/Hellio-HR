@@ -37,6 +37,7 @@ test.describe('Suggestions UI', () => {
               candidate_id: 'test-candidate-id',
               name: 'Jane Kubernetes',
               title: 'DevOps Engineer',
+              similarityScore: 8.7,
               explanation: 'Strong Kubernetes and CI/CD delivery experience in production teams.',
             },
           ],
@@ -45,9 +46,13 @@ test.describe('Suggestions UI', () => {
     });
 
     await openFirstPosition(page);
+    await expect(page.getByRole('button', { name: 'Refresh Suggestions' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Suggest Candidates' }).click();
 
     await expect(page.getByRole('heading', { name: 'Candidate Suggestions' })).toBeVisible();
     await expect(page.locator('#suggestions-section .suggestions-list .card')).toHaveCount(1);
+    await expect(page.locator('#suggestions-section')).toContainText('Match score: 8.7/10');
+    await expect(page.getByRole('button', { name: 'Refresh Suggestions' })).toBeVisible();
   });
 
   test('Candidate profile shows suggestions with explanations', async ({ page, request }) => {
@@ -71,7 +76,84 @@ test.describe('Suggestions UI', () => {
 
     if (payload.suggestions.length > 0) {
       expect(payload.suggestions[0].explanation.length).toBeGreaterThan(20);
+      expect(typeof payload.suggestions[0].similarityScore).toBe('number');
     }
+  });
+
+  test('Candidate profile renders at most 3 relevant position suggestions', async ({ page }) => {
+    await login(page);
+
+    await page.route('**/candidates/*/suggestions**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          candidate_id: 'test-candidate-id',
+          suggestions: [
+            {
+              position_id: 'pos-1',
+              title: 'Backend Engineer',
+              department: 'Engineering',
+              similarityScore: 9.3,
+              explanation: 'Strong Python and API design background aligns with backend delivery.',
+            },
+            {
+              position_id: 'pos-2',
+              title: 'Data Engineer',
+              department: 'Data',
+              similarityScore: 8.1,
+              explanation: 'Hands-on SQL and ETL work maps directly to data platform needs.',
+            },
+            {
+              position_id: 'pos-3',
+              title: 'ML Engineer',
+              department: 'AI',
+              similarityScore: 7.8,
+              explanation: 'Relevant model deployment experience supports production ML workflows.',
+            },
+            {
+              position_id: 'pos-4',
+              title: 'SRE',
+              department: 'Platform',
+              similarityScore: 6.5,
+              explanation: 'This extra item should not render because UI caps at 3.',
+            },
+          ],
+        }),
+      });
+    });
+
+    const firstCandidate = page.locator('#candidate-list .list-item').first();
+    await expect(firstCandidate).toBeVisible();
+    await firstCandidate.click();
+    await page.getByRole('button', { name: 'Suggest Positions' }).click();
+
+    await expect(page.locator('#candidate-suggestions-section h3')).toHaveText('Suggested Positions');
+    await expect(page.locator('#candidate-suggestions-section .suggestions-list .card')).toHaveCount(3);
+    await expect(page.locator('#candidate-suggestions-section')).toContainText('Match score: 9.3/10');
+    await expect(page.locator('#candidate-suggestions-section')).not.toContainText('SRE');
+  });
+
+  test('Candidate profile shows empty state when no relevant positions exist', async ({ page }) => {
+    await login(page);
+
+    await page.route('**/candidates/*/suggestions**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          candidate_id: 'test-candidate-id',
+          suggestions: [],
+        }),
+      });
+    });
+
+    const firstCandidate = page.locator('#candidate-list .list-item').first();
+    await expect(firstCandidate).toBeVisible();
+    await firstCandidate.click();
+    await page.getByRole('button', { name: 'Suggest Positions' }).click();
+
+    await expect(page.locator('#candidate-suggestions-section')).toContainText('No relevant positions found');
   });
 
   test('Empty state when no suggestions available', async ({ page }) => {
@@ -85,8 +167,11 @@ test.describe('Suggestions UI', () => {
     });
 
     await openFirstPosition(page);
+    await expect(page.getByRole('button', { name: 'Refresh Suggestions' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Suggest Candidates' }).click();
 
     await expect(page.getByText('No matching candidates found')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Refresh Suggestions' })).toHaveCount(0);
   });
 
   test('Loading state appears during fetch', async ({ page }) => {
@@ -103,6 +188,7 @@ test.describe('Suggestions UI', () => {
     await page.goto('/positions.html');
     const firstPosition = page.locator('#position-list .list-item').first();
     await firstPosition.click();
+    await page.getByRole('button', { name: 'Suggest Candidates' }).click();
 
     await expect(page.getByText(/Finding matching candidates/i)).toBeVisible();
     await expect(page.getByText('No matching candidates found')).toBeVisible();
@@ -183,6 +269,7 @@ test.describe('Suggestions UI', () => {
                   candidate_id: candidateId,
                   name: 'Taylor DevOps',
                   title: 'DevOps Engineer',
+                  similarityScore: 8.4,
                   explanation: 'Strong Kubernetes, CI/CD, and production operations background.',
                 },
               ],
@@ -216,6 +303,7 @@ test.describe('Suggestions UI', () => {
     });
 
     await openFirstPosition(page);
+    await page.getByRole('button', { name: 'Suggest Candidates' }).click();
 
     const suggestionCard = page.locator('#suggestions-section .suggestions-list .card').first();
     await expect(suggestionCard).toBeVisible();

@@ -1,22 +1,23 @@
 import pytest
 from uuid import uuid4, UUID
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.pipeline import IngestionPipeline, IngestResult
 from app.models import Document, DocumentText, DocumentExtraction, DocumentSummary, Candidate, CandidateProfile, Base
 from app.services.llm import LLMResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import Table, text
 
 @pytest.fixture(autouse=True)
 def setup_db_tables(test_db: Session):
     engine = test_db.get_bind()
     tables = [
-        Candidate.__table__,
-        CandidateProfile.__table__,
-        Document.__table__,
-        DocumentText.__table__,
-        DocumentExtraction.__table__,
-        DocumentSummary.__table__,
+        cast(Table, Candidate.__table__),
+        cast(Table, CandidateProfile.__table__),
+        cast(Table, Document.__table__),
+        cast(Table, DocumentText.__table__),
+        cast(Table, DocumentExtraction.__table__),
+        cast(Table, DocumentSummary.__table__),
     ]
     Base.metadata.create_all(engine, tables=tables)
     
@@ -54,7 +55,13 @@ async def test_ingest_success_path(test_db: Session, document, candidate):
     parser_version = "test-parser-1.0"
     heuristics = {"emails": ["test@example.com"]}
     llm_raw_output = '{"name": "John Doe", "skills": []}'
-    validated_json = {"name": "John Doe", "skills": [], "experience": [], "education": []}
+    validated_json = {
+        "name": "John Doe",
+        "summary": "Backend engineer with API experience",
+        "skills": [{"name": "Python"}],
+        "experience": [],
+        "education": [],
+    }
     summary_text = "A qualified candidate."
     
     with patch("app.services.pipeline.Path") as mock_path_class, \
@@ -62,7 +69,8 @@ async def test_ingest_success_path(test_db: Session, document, candidate):
          patch("app.services.pipeline.extract_all", return_value=heuristics), \
          patch("app.services.pipeline.load_prompt", side_effect=lambda name: f"Prompt for {name}"), \
          patch("app.services.pipeline.get_provider") as mock_get_provider, \
-         patch("app.services.pipeline.validate_extraction", return_value=(validated_json, [])):
+         patch("app.services.pipeline.validate_extraction", return_value=(validated_json, [])), \
+         patch("app.services.pipeline.generate_embedding", new=AsyncMock(return_value=[0.1] * 768)):
         
         mock_path = MagicMock()
         mock_path.exists.return_value = True
@@ -76,7 +84,7 @@ async def test_ingest_success_path(test_db: Session, document, candidate):
             LLMResponse(content=llm_raw_output, provider="test", model="test-model", 
                         prompt_version="v1", token_estimate_in=10, token_estimate_out=10, 
                         elapsed_ms=100, cost_estimate_usd=0.0),
-            LLMResponse(content=summary_text, provider="test", model="test-model", 
+            LLMResponse(content='{"summary": "A qualified candidate."}', provider="test", model="test-model", 
                         prompt_version="v1", token_estimate_in=10, token_estimate_out=10, 
                         elapsed_ms=100, cost_estimate_usd=0.0)
         ]
@@ -101,9 +109,76 @@ async def test_ingest_success_path(test_db: Session, document, candidate):
         assert len(document.summaries) == 1
         assert document.summaries[0].summary_text == summary_text
         
-        test_db.refresh(candidate)
-        assert candidate.profile is not None
-        assert candidate.profile.profile_json["name"] == "John Doe"
+        test_db.refresh(document)
+        linked_candidate = test_db.get(Candidate, document.candidate_id)
+        assert linked_candidate is not None
+        assert linked_candidate.profile is not None
+        assert linked_candidate.profile.profile_json["name"] == "John Doe"
+        assert linked_candidate.embedding is not None
+        assert linked_candidate.embedding_text is not None
+
+
+@pytest.mark.asyncio
+async def test_ingest_fails_when_embedding_generation_fails(test_db: Session, document):
+    pipeline = IngestionPipeline()
+
+    validated_json = {
+        "name": "John Doe",
+        "summary": "Backend engineer with API experience",
+        "skills": [{"name": "Python"}],
+        "experience": [],
+        "education": [],
+    }
+
+    with patch("app.services.pipeline.Path") as mock_path_class, \
+         patch("app.services.pipeline.parse_document", return_value=("Extracted CV text", "test-parser-1.0")), \
+         patch("app.services.pipeline.extract_all", return_value={"emails": ["test@example.com"]}), \
+         patch("app.services.pipeline.load_prompt", side_effect=lambda name: f"Prompt for {name}"), \
+         patch("app.services.pipeline.get_provider") as mock_get_provider, \
+         patch("app.services.pipeline.validate_extraction", return_value=(validated_json, [])), \
+         patch("app.services.pipeline.generate_embedding", new=AsyncMock(side_effect=RuntimeError("embedding unavailable"))):
+
+        mock_path = MagicMock()
+        mock_path.exists.return_value = True
+        mock_path.read_bytes.return_value = b"pdf content"
+        mock_path_class.return_value.__truediv__.return_value = mock_path
+
+        mock_provider = AsyncMock()
+        mock_get_provider.return_value = mock_provider
+        mock_provider.generate.side_effect = [
+            LLMResponse(
+                content='{"name": "John Doe", "skills": [{"name": "Python"}]}',
+                provider="test",
+                model="test-model",
+                prompt_version="v1",
+                token_estimate_in=10,
+                token_estimate_out=10,
+                elapsed_ms=100,
+                cost_estimate_usd=0.0,
+            ),
+            LLMResponse(
+                content='{"summary": "A qualified candidate."}',
+                provider="test",
+                model="test-model",
+                prompt_version="v1",
+                token_estimate_in=10,
+                token_estimate_out=10,
+                elapsed_ms=100,
+                cost_estimate_usd=0.0,
+            ),
+        ]
+
+        result = await pipeline.ingest(document.id, test_db)
+
+    assert result.status == "llm_error"
+    assert result.summary_id is None
+    assert result.extraction_id is None
+    assert "Embedding generation failed" in result.errors[0]
+
+    test_db.refresh(document)
+    assert len(document.texts) == 0
+    assert len(document.extractions) == 0
+    assert len(document.summaries) == 0
 
 @pytest.mark.asyncio
 async def test_ingest_parsing_failure(test_db: Session, document):
@@ -221,4 +296,3 @@ async def test_ingest_idempotency(test_db: Session, document):
     
     test_db.refresh(doc2)
     assert len(doc2.extractions) == 0
-

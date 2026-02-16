@@ -77,6 +77,7 @@ def test_position_suggestions_success(authenticated_client, test_db):
     assert data["suggestions"][0]["candidateId"] == str(candidate_id)
     assert data["suggestions"][0]["name"] == "Ada"
     assert data["suggestions"][0]["title"] == "Engineer"
+    assert data["suggestions"][0]["similarityScore"] == 8.0
     assert data["suggestions"][0]["explanation"]
 
 
@@ -121,6 +122,7 @@ def test_candidate_suggestions_success(authenticated_client, test_db):
     assert data["suggestions"][0]["positionId"] == str(position_id)
     assert data["suggestions"][0]["title"] == "Backend Engineer"
     assert data["suggestions"][0]["department"] == "Engineering"
+    assert data["suggestions"][0]["similarityScore"] == 9.0
     assert data["suggestions"][0]["explanation"]
 
 
@@ -193,3 +195,8 @@ def test_exclude_already_applied_candidates(authenticated_client, test_db):
     assert response.status_code == 200
     assert response.json()["suggestions"] == []
     assert mock_find.call_args.kwargs["exclude_ids"] == [applied_candidate_id]
+
+
+def test_candidate_suggestions_limit_cannot_exceed_three(authenticated_client):
+    response = authenticated_client.get(f"/candidates/{uuid.uuid4()}/suggestions?limit=4")
+    assert response.status_code == 422

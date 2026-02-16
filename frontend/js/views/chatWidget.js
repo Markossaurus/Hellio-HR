@@ -2,8 +2,14 @@ import { sendChatQuery } from '../api/chat.js';
 
 let conversationHistory = [];
 let isOpen = false;
+let hasShownWelcomeMessage = false;
+const WELCOME_MESSAGE = 'Hello! I can help you search candidates and positions. Try asking questions like "list open positions" or "show candidates with Python experience".';
 
 export function initChatWidget() {
+  if (document.getElementById('chat-widget-button') || document.getElementById('chat-panel')) {
+    return;
+  }
+
   createChatButton();
   createChatPanel();
   attachEventListeners();
@@ -68,8 +74,18 @@ function toggleChat() {
   const panel = document.getElementById('chat-panel');
   panel.style.display = isOpen ? 'flex' : 'none';
   
-  if (isOpen && conversationHistory.length === 0) {
-    addMessage('assistant', 'Hello! I can help you search candidates and positions. Try asking questions like "list open positions" or "show candidates with Python experience".');
+  const messagesContainer = document.getElementById('chat-messages');
+  const hasWelcomeInUi = Array.from(messagesContainer.children).some((node) => {
+    const content = node.querySelector('.chat-message-content');
+    return content && content.textContent === WELCOME_MESSAGE;
+  });
+
+  if (isOpen && !hasShownWelcomeMessage && !hasWelcomeInUi) {
+    addMessage('assistant', WELCOME_MESSAGE);
+    hasShownWelcomeMessage = true;
+    panel.dataset.welcomeShown = 'true';
+  } else if (panel.dataset.welcomeShown === 'true') {
+    hasShownWelcomeMessage = true;
   }
 }
 
